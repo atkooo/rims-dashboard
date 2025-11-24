@@ -41,12 +41,6 @@
         </button>
       </form>
 
-      <div class="login-footer">
-        <p>
-          Belum punya akun?
-          <router-link to="/register">Daftar di sini</router-link>
-        </p>
-      </div>
     </div>
   </div>
 </template>

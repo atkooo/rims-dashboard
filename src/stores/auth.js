@@ -99,13 +99,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // Reset password
-  async function resetPassword(email) {
+  // Change password
+  async function changePassword(newPassword) {
     loading.value = true
     error.value = null
     try {
-      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`
+      const { error: authError } = await supabase.auth.updateUser({
+        password: newPassword
       })
       
       if (authError) throw authError
@@ -128,7 +128,7 @@ export const useAuthStore = defineStore('auth', () => {
     signUp,
     signIn,
     signOut,
-    resetPassword
+    changePassword
   }
 })
 

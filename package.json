@@ -4,9 +4,10 @@
   "description": "Dashboard untuk melihat data yang dikirim dari sync service RIMS",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3005",
     "dev:3001": "vite --port 3001",
     "dev:3002": "vite --port 3002",
+    "dev:3005": "vite --port 3005",
     "dev:5000": "vite --port 5000",
     "build": "vite build",
     "preview": "vite preview",
@@ -25,7 +26,8 @@
     "@vitejs/plugin-vue": "^5.0.2",
     "vite": "^5.0.10",
     "eslint": "^8.56.0",
-    "eslint-plugin-vue": "^9.20.0"
+    "eslint-plugin-vue": "^9.20.0",
+    "dotenv": "^16.3.1"
   }
 }
 

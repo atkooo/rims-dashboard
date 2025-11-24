@@ -25,6 +25,10 @@
           <span>📈</span>
           <span>Pergerakan Stok</span>
         </router-link>
+        <router-link to="/change-password" class="nav-item">
+          <span>🔒</span>
+          <span>Ganti Password</span>
+        </router-link>
       </nav>
       <div class="sidebar-footer">
         <div class="user-info">
@@ -63,7 +67,8 @@ const pageTitle = computed(() => {
     'rental-transactions': 'Transaksi Rental',
     'sales-transactions': 'Transaksi Penjualan',
     payments: 'Pembayaran',
-    'stock-movements': 'Pergerakan Stok'
+    'stock-movements': 'Pergerakan Stok',
+    'change-password': 'Ganti Password'
   }
   return titles[route.name] || 'Dashboard'
 })

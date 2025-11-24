@@ -10,7 +10,7 @@ export default defineConfig({
     }
   },
   server: {
-    port: parseInt(process.env.PORT || '3000', 10),
+    port: parseInt(process.env.PORT || '3005', 10),
     open: true
   }
 })

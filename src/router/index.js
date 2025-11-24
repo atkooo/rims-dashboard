@@ -15,12 +15,6 @@ const router = createRouter({
       meta: { requiresGuest: true }
     },
     {
-      path: '/register',
-      name: 'Register',
-      component: () => import('@/views/Register.vue'),
-      meta: { requiresGuest: true }
-    },
-    {
       path: '/dashboard',
       name: 'Dashboard',
       component: () => import('@/views/Dashboard.vue'),
@@ -48,6 +42,12 @@ const router = createRouter({
       path: '/stock-movements',
       name: 'StockMovements',
       component: () => import('@/views/StockMovements.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/change-password',
+      name: 'ChangePassword',
+      component: () => import('@/views/ChangePassword.vue'),
       meta: { requiresAuth: true }
     }
   ]
