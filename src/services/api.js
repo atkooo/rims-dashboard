@@ -16,7 +16,7 @@ function normalizePaymentType(type) {
 function buildPaymentQuery(table, filters) {
   let query = supabase
     .from(table)
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('payment_date', { ascending: false })
 
   if (filters.dateFrom) {
@@ -29,9 +29,6 @@ function buildPaymentQuery(table, filters) {
     query = query.eq('payment_method', filters.paymentMethod)
   }
 
-  const limit = filters.limit || 1000
-  query = query.limit(limit)
-
   return query
 }
 
@@ -40,7 +37,7 @@ export async function fetchRentalTransactions(filters = {}) {
   try {
     let query = supabase
       .from('rental_transactions')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
     if (filters.dateFrom) {
@@ -53,10 +50,14 @@ export async function fetchRentalTransactions(filters = {}) {
       query = query.eq('status', filters.status)
     }
 
-    const { data, error } = await query.limit(filters.limit || 1000)
+    const limit = filters.limit || 1000
+    const page = filters.page || 1
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    const { data, error, count } = await query.range(from, to)
 
     if (error) throw error
-    return { success: true, data }
+    return { success: true, data, count }
   } catch (error) {
     console.error('Error fetching rental transactions:', error)
     return { success: false, error: error.message }
@@ -84,7 +85,7 @@ export async function fetchSalesTransactions(filters = {}) {
   try {
     let query = supabase
       .from('sales_transactions')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
     if (filters.dateFrom) {
@@ -97,10 +98,14 @@ export async function fetchSalesTransactions(filters = {}) {
       query = query.eq('status', filters.status)
     }
 
-    const { data, error } = await query.limit(filters.limit || 1000)
+    const limit = filters.limit || 1000
+    const page = filters.page || 1
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    const { data, error, count } = await query.range(from, to)
 
     if (error) throw error
-    return { success: true, data }
+    return { success: true, data, count }
   } catch (error) {
     console.error('Error fetching sales transactions:', error)
     return { success: false, error: error.message }
@@ -134,8 +139,24 @@ export async function fetchPayments(filters = {}) {
           { table: PAYMENT_TABLES.sales, type: 'sales' }
         ]
 
+    const limit = filters.limit || 1000
+    const page = filters.page || 1
+
+    if (normalizedType) {
+      const from = (page - 1) * limit
+      const to = from + limit - 1
+      const { data, error, count } = await buildPaymentQuery(tableTargets[0].table, filters).range(from, to)
+      if (error) throw error
+      const mergedPayments = (data || []).map(payment => ({
+        ...payment,
+        transaction_type: tableTargets[0].type
+      }))
+      return { success: true, data: mergedPayments, count }
+    }
+
+    const maxRows = page * limit
     const results = await Promise.all(
-      tableTargets.map(({ table }) => buildPaymentQuery(table, filters))
+      tableTargets.map(({ table }) => buildPaymentQuery(table, filters).range(0, maxRows - 1))
     )
 
     const mergedPayments = results.flatMap((result, index) => {
@@ -151,8 +172,10 @@ export async function fetchPayments(filters = {}) {
 
     mergedPayments.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
 
-    const limit = filters.limit || 1000
-    return { success: true, data: mergedPayments.slice(0, limit) }
+    const from = (page - 1) * limit
+    const to = from + limit
+    const totalCount = results.reduce((sum, result) => sum + (result.count || 0), 0)
+    return { success: true, data: mergedPayments.slice(from, to), count: totalCount }
   } catch (error) {
     console.error('Error fetching payments:', error)
     return { success: false, error: error.message }
@@ -164,7 +187,7 @@ export async function fetchStockMovements(filters = {}) {
   try {
     let query = supabase
       .from('stock_movements')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
 
     if (filters.dateFrom) {
@@ -177,10 +200,14 @@ export async function fetchStockMovements(filters = {}) {
       query = query.eq('movement_type', filters.movementType)
     }
 
-    const { data, error } = await query.limit(filters.limit || 1000)
+    const limit = filters.limit || 1000
+    const page = filters.page || 1
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+    const { data, error, count } = await query.range(from, to)
 
     if (error) throw error
-    return { success: true, data }
+    return { success: true, data, count }
   } catch (error) {
     console.error('Error fetching stock movements:', error)
     return { success: false, error: error.message }
@@ -195,15 +222,13 @@ export async function getDashboardStats(dateFrom, dateTo) {
     const toDate = dateTo || new Date().toISOString().split('T')[0]
 
     // Fetch all data in parallel
-    const [rentalsResult, salesResult, paymentsResult] = await Promise.all([
+    const [rentalsResult, salesResult] = await Promise.all([
       fetchRentalTransactions({ dateFrom: fromDate, dateTo: toDate }),
-      fetchSalesTransactions({ dateFrom: fromDate, dateTo: toDate }),
-      fetchPayments({ dateFrom: fromDate, dateTo: toDate })
+      fetchSalesTransactions({ dateFrom: fromDate, dateTo: toDate })
     ])
 
     const rentals = rentalsResult.data || []
     const sales = salesResult.data || []
-    const payments = paymentsResult.data || []
     const validSales = sales.filter(s => s.status?.toLowerCase() !== 'cancelled')
     const validRentals = rentals.filter(r => r.status?.toLowerCase() !== 'cancelled')
 
@@ -214,7 +239,9 @@ export async function getDashboardStats(dateFrom, dateTo) {
       totalTransactions: rentals.length + sales.length,
       totalRevenue: validSales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0),
       totalRentalIncome: validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
-      totalPayments: payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0),
+      totalPayments:
+        validSales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0) +
+        validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
       activeRentals: rentals.filter(r => r.status === 'active').length,
       completedSales: sales.filter(s => s.status === 'completed').length,
     }

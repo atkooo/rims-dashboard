@@ -10,7 +10,7 @@
       </button>
     </div>
 
-    <div class="filters">
+    <div class="filters card filters-card">
       <div class="filter-group">
         <label>Dari Tanggal</label>
         <input v-model="filters.dateFrom" type="date" class="form-input" />
@@ -28,7 +28,24 @@
           <option value="cancelled">Cancelled</option>
         </select>
       </div>
-      <button @click="applyFilters" class="btn btn-primary">Filter</button>
+      <div class="filter-actions">
+        <button @click="applyFilters" class="btn btn-primary">Filter</button>
+      </div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <p class="summary-label">Total Transaksi</p>
+        <p class="summary-value">{{ totalCount }}</p>
+      </div>
+      <div class="summary-card">
+        <p class="summary-label">Subtotal</p>
+        <p class="summary-value">Rp {{ formatCurrency(totalSubtotal) }}</p>
+      </div>
+      <div class="summary-card">
+        <p class="summary-label">Total Penjualan</p>
+        <p class="summary-value">Rp {{ formatCurrency(totalAmount) }}</p>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">
@@ -39,38 +56,47 @@
       <div v-if="transactions.length === 0" class="empty-state">
         Tidak ada data transaksi
       </div>
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th>Kode Transaksi</th>
-            <th>Tanggal</th>
-            <th>Customer ID</th>
-            <th>Subtotal</th>
-            <th>Total</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="transaction in transactions" :key="transaction.id">
-            <td>{{ transaction.transaction_code }}</td>
-            <td>{{ formatDate(transaction.sale_date) }}</td>
-            <td>{{ transaction.customer_id }}</td>
-            <td>Rp {{ formatCurrency(transaction.subtotal) }}</td>
-            <td>Rp {{ formatCurrency(transaction.total_amount) }}</td>
-            <td>
-              <span :class="getStatusBadgeClass(transaction.status)">
-                {{ transaction.status }}
-              </span>
-            </td>
-            <td>
-              <button @click="viewDetails(transaction.id)" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
-                Detail
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-else class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Kode Transaksi</th>
+              <th>Tanggal</th>
+              <th>Customer ID</th>
+              <th>Subtotal</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="transaction in transactions" :key="transaction.id">
+              <td>{{ transaction.transaction_code }}</td>
+              <td>{{ formatDate(transaction.sale_date) }}</td>
+              <td>{{ transaction.customer_id }}</td>
+              <td>Rp {{ formatCurrency(transaction.subtotal) }}</td>
+              <td>Rp {{ formatCurrency(transaction.total_amount) }}</td>
+              <td>
+                <span :class="getStatusBadgeClass(transaction.status)">
+                  {{ transaction.status }}
+                </span>
+              </td>
+              <td>
+                <button @click="viewDetails(transaction.id)" class="btn btn-secondary btn-xs">
+                  Detail
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ListPagination
+        :page="filters.page"
+        :page-size="filters.limit"
+        :total-pages="totalPages"
+        @update:page="handlePageChange"
+        @update:pageSize="handlePageSizeChange"
+      />
 
       <div v-if="detailsOpen" class="details-modal" @click.self="detailsOpen = false">
         <div class="modal-content">
@@ -81,24 +107,26 @@
           <div v-if="selectedDetails.length === 0" class="loading">
             <div class="spinner"></div>
           </div>
-          <table v-else class="table">
-            <thead>
-              <tr>
-                <th>Item ID</th>
-                <th>Quantity</th>
-                <th>Harga Jual</th>
-                <th>Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="detail in selectedDetails" :key="detail.id">
-                <td>{{ detail.item_id }}</td>
-                <td>{{ detail.quantity }}</td>
-                <td>Rp {{ formatCurrency(detail.sale_price) }}</td>
-                <td>Rp {{ formatCurrency(detail.subtotal) }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-else class="table-wrapper">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Item ID</th>
+                  <th>Quantity</th>
+                  <th>Harga Jual</th>
+                  <th>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="detail in selectedDetails" :key="detail.id">
+                  <td>{{ detail.item_id }}</td>
+                  <td>{{ detail.quantity }}</td>
+                  <td>Rp {{ formatCurrency(detail.sale_price) }}</td>
+                  <td>Rp {{ formatCurrency(detail.subtotal) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -106,19 +134,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
+import ListPagination from '@/components/ListPagination.vue'
 import { fetchSalesTransactions, fetchSalesTransactionDetails } from '@/services/api'
 
 const loading = ref(false)
 const transactions = ref([])
+const totalCount = ref(0)
 const filters = ref({
   dateFrom: '',
   dateTo: '',
-  status: ''
+  status: '',
+  limit: 25,
+  page: 1
 })
 const detailsOpen = ref(false)
 const selectedDetails = ref([])
+
+const totalSubtotal = computed(() =>
+  transactions.value.reduce((sum, t) => sum + (parseFloat(t.subtotal) || 0), 0)
+)
+const totalAmount = computed(() =>
+  transactions.value.reduce((sum, t) => sum + (parseFloat(t.total_amount) || 0), 0)
+)
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(totalCount.value / (filters.value.limit || 1)))
+)
 
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('id-ID').format(value || 0)
@@ -144,6 +187,7 @@ const loadData = async () => {
     const result = await fetchSalesTransactions(filters.value)
     if (result.success) {
       transactions.value = result.data || []
+      totalCount.value = result.count || 0
     }
   } catch (error) {
     console.error('Error loading sales transactions:', error)
@@ -153,6 +197,18 @@ const loadData = async () => {
 }
 
 const applyFilters = () => {
+  filters.value.page = 1
+  loadData()
+}
+
+const handlePageChange = (page) => {
+  filters.value.page = page
+  loadData()
+}
+
+const handlePageSizeChange = (size) => {
+  filters.value.limit = size
+  filters.value.page = 1
   loadData()
 }
 
@@ -196,6 +252,10 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.filters-card {
+  align-items: flex-end;
+}
+
 .filter-group {
   display: flex;
   flex-direction: column;
@@ -206,6 +266,54 @@ onMounted(() => {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--gray-700);
+}
+
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 10px 20px -18px rgba(15, 23, 42, 0.4);
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-500);
+  margin-bottom: 0.4rem;
+}
+
+.summary-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-wrapper .table {
+  min-width: 720px;
+}
+
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
 }
 
 .details-modal {
@@ -244,5 +352,39 @@ onMounted(() => {
   font-size: 1.25rem;
   font-weight: 600;
 }
-</style>
 
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-actions {
+    width: 100%;
+  }
+
+  .filter-actions .btn {
+    width: 100%;
+  }
+
+  .table-wrapper .table {
+    min-width: 640px;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-wrapper .table {
+    min-width: 560px;
+  }
+}
+</style>

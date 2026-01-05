@@ -1,10 +1,10 @@
 <template>
   <div class="layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'is-open': isSidebarOpen }">
       <div class="sidebar-header">
         <h2>RIMS Dashboard</h2>
       </div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" @click="closeSidebar">
         <router-link to="/dashboard" class="nav-item">
           <span>📊</span>
           <span>Dashboard</span>
@@ -39,8 +39,26 @@
         </button>
       </div>
     </aside>
+    <div class="sidebar-overlay" :class="{ 'is-open': isSidebarOpen }" @click="closeSidebar"></div>
     <main class="main-content">
       <header class="header">
+        <button
+          class="menu-toggle"
+          type="button"
+          @click="toggleSidebar"
+          :aria-expanded="isSidebarOpen"
+          aria-label="Toggle navigation"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M4 6h16M4 12h16M4 18h16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
         <h1>{{ pageTitle }}</h1>
       </header>
       <div class="content">
@@ -51,13 +69,14 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const isSidebarOpen = ref(false)
 
 const userEmail = computed(() => authStore.user?.email || '')
 
@@ -75,6 +94,14 @@ const pageTitle = computed(() => {
 
 const handleLogout = async () => {
   await authStore.signOut()
+}
+
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
+
+const closeSidebar = () => {
+  isSidebarOpen.value = false
 }
 </script>
 
@@ -171,5 +198,74 @@ const handleLogout = async () => {
   padding: 2rem;
   overflow-y: auto;
 }
-</style>
 
+.menu-toggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+  background: white;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-right: 1rem;
+}
+
+.menu-toggle svg {
+  width: 22px;
+  height: 22px;
+  color: var(--gray-700);
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    width: 240px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 20;
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+  }
+
+  .sidebar-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .main-content {
+    margin-left: 0;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .content {
+    padding: 1.25rem;
+  }
+}
+</style>
