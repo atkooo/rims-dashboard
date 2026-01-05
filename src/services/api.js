@@ -1,5 +1,40 @@
 import { supabase } from '@/config/supabase'
 
+const PAYMENT_TABLES = {
+  rental: 'rental_payments',
+  sale: 'sales_payments',
+  sales: 'sales_payments'
+}
+
+function normalizePaymentType(type) {
+  if (!type) return null
+  const normalized = `${type}`.trim().toLowerCase()
+  if (!PAYMENT_TABLES[normalized]) return null
+  return normalized === 'sale' ? 'sales' : normalized
+}
+
+function buildPaymentQuery(table, filters) {
+  let query = supabase
+    .from(table)
+    .select('*')
+    .order('payment_date', { ascending: false })
+
+  if (filters.dateFrom) {
+    query = query.gte('payment_date', filters.dateFrom)
+  }
+  if (filters.dateTo) {
+    query = query.lte('payment_date', filters.dateTo)
+  }
+  if (filters.paymentMethod) {
+    query = query.eq('payment_method', filters.paymentMethod)
+  }
+
+  const limit = filters.limit || 1000
+  query = query.limit(limit)
+
+  return query
+}
+
 // Fetch rental transactions
 export async function fetchRentalTransactions(filters = {}) {
   try {
@@ -91,25 +126,33 @@ export async function fetchSalesTransactionDetails(transactionId) {
 // Fetch payments
 export async function fetchPayments(filters = {}) {
   try {
-    let query = supabase
-      .from('payments')
-      .select('*')
-      .order('payment_date', { ascending: false })
+    const normalizedType = normalizePaymentType(filters.transactionType)
+    const tableTargets = normalizedType
+      ? [{ table: PAYMENT_TABLES[normalizedType], type: normalizedType }]
+      : [
+          { table: PAYMENT_TABLES.rental, type: 'rental' },
+          { table: PAYMENT_TABLES.sales, type: 'sales' }
+        ]
 
-    if (filters.dateFrom) {
-      query = query.gte('payment_date', filters.dateFrom)
-    }
-    if (filters.dateTo) {
-      query = query.lte('payment_date', filters.dateTo)
-    }
-    if (filters.transactionType) {
-      query = query.eq('transaction_type', filters.transactionType)
-    }
+    const results = await Promise.all(
+      tableTargets.map(({ table }) => buildPaymentQuery(table, filters))
+    )
 
-    const { data, error } = await query.limit(filters.limit || 1000)
+    const mergedPayments = results.flatMap((result, index) => {
+      if (result.error) {
+        throw result.error
+      }
+      const type = tableTargets[index].type
+      return (result.data || []).map(payment => ({
+        ...payment,
+        transaction_type: type
+      }))
+    })
 
-    if (error) throw error
-    return { success: true, data }
+    mergedPayments.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+
+    const limit = filters.limit || 1000
+    return { success: true, data: mergedPayments.slice(0, limit) }
   } catch (error) {
     console.error('Error fetching payments:', error)
     return { success: false, error: error.message }
@@ -180,4 +223,3 @@ export async function getDashboardStats(dateFrom, dateTo) {
     return { success: false, error: error.message }
   }
 }
-
