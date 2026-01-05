@@ -223,20 +223,8 @@ onMounted(() => {
   gap: 1.75rem;
   padding: 1.5rem;
   border-radius: 1rem;
-  background: linear-gradient(140deg, #f8fafc 0%, #eef2ff 50%, #f0fdf4 100%);
   position: relative;
   overflow: hidden;
-}
-
-.dashboard::after {
-  content: '';
-  position: absolute;
-  width: 280px;
-  height: 280px;
-  right: -80px;
-  top: -120px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.18), rgba(255, 255, 255, 0));
-  pointer-events: none;
 }
 
 .section-header {
