@@ -204,14 +204,16 @@ export async function getDashboardStats(dateFrom, dateTo) {
     const rentals = rentalsResult.data || []
     const sales = salesResult.data || []
     const payments = paymentsResult.data || []
+    const validSales = sales.filter(s => s.status?.toLowerCase() !== 'cancelled')
+    const validRentals = rentals.filter(r => r.status?.toLowerCase() !== 'cancelled')
 
     // Calculate statistics
     const stats = {
       totalRentals: rentals.length,
       totalSales: sales.length,
       totalTransactions: rentals.length + sales.length,
-      totalRevenue: sales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0),
-      totalRentalIncome: rentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
+      totalRevenue: validSales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0),
+      totalRentalIncome: validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
       totalPayments: payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0),
       activeRentals: rentals.filter(r => r.status === 'active').length,
       completedSales: sales.filter(s => s.status === 'completed').length,
