@@ -126,6 +126,35 @@ export async function fetchSalesTransactionDetails(transactionId) {
 // Fetch payments
 export async function fetchPayments(filters = {}) {
   try {
+    let fallbackQuery = supabase
+      .from('payments')
+      .select('*')
+      .order('payment_date', { ascending: false })
+
+    if (filters.dateFrom) {
+      fallbackQuery = fallbackQuery.gte('payment_date', filters.dateFrom)
+    }
+    if (filters.dateTo) {
+      fallbackQuery = fallbackQuery.lte('payment_date', filters.dateTo)
+    }
+    if (filters.transactionType) {
+      fallbackQuery = fallbackQuery.eq('transaction_type', filters.transactionType)
+    }
+    if (filters.paymentMethod) {
+      fallbackQuery = fallbackQuery.eq('payment_method', filters.paymentMethod)
+    }
+
+    const { data, error: fallbackError } = await fallbackQuery.limit(filters.limit || 1000)
+    if (fallbackError) throw fallbackError
+    return { success: true, data }
+  } catch (error) {
+    if (error?.code !== 'PGRST205') {
+      console.error('Error fetching payments:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  try {
     const normalizedType = normalizePaymentType(filters.transactionType)
     const tableTargets = normalizedType
       ? [{ table: PAYMENT_TABLES[normalizedType], type: normalizedType }]
@@ -154,34 +183,6 @@ export async function fetchPayments(filters = {}) {
     const limit = filters.limit || 1000
     return { success: true, data: mergedPayments.slice(0, limit) }
   } catch (error) {
-    if (error?.code === 'PGRST205') {
-      try {
-        let fallbackQuery = supabase
-          .from('payments')
-          .select('*')
-          .order('payment_date', { ascending: false })
-
-        if (filters.dateFrom) {
-          fallbackQuery = fallbackQuery.gte('payment_date', filters.dateFrom)
-        }
-        if (filters.dateTo) {
-          fallbackQuery = fallbackQuery.lte('payment_date', filters.dateTo)
-        }
-        if (filters.transactionType) {
-          fallbackQuery = fallbackQuery.eq('transaction_type', filters.transactionType)
-        }
-        if (filters.paymentMethod) {
-          fallbackQuery = fallbackQuery.eq('payment_method', filters.paymentMethod)
-        }
-
-        const { data, error: fallbackError } = await fallbackQuery.limit(filters.limit || 1000)
-        if (fallbackError) throw fallbackError
-        return { success: true, data }
-      } catch (fallbackError) {
-        console.error('Error fetching payments (fallback):', fallbackError)
-        return { success: false, error: fallbackError.message }
-      }
-    }
     console.error('Error fetching payments:', error)
     return { success: false, error: error.message }
   }
