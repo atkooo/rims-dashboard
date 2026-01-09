@@ -5,6 +5,7 @@ const PAYMENT_TABLES = {
   sale: 'sales_payments',
   sales: 'sales_payments'
 }
+const NET_PROFIT_VIEW = 'sales_profit_view'
 
 function normalizePaymentType(type) {
   if (!type) return null
@@ -30,6 +31,49 @@ function buildPaymentQuery(table, filters) {
   }
 
   return query
+}
+
+async function fetchNetProfitFromView(dateFrom, dateTo) {
+  try {
+    let query = supabase
+      .from(NET_PROFIT_VIEW)
+      .select('laba_total, sale_date')
+
+    if (dateFrom) {
+      query = query.gte('sale_date', dateFrom)
+    }
+    if (dateTo) {
+      query = query.lte('sale_date', dateTo)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const netProfit = (data || []).reduce((sum, row) => sum + (parseFloat(row.laba_total) || 0), 0)
+    return { success: true, netProfit }
+  } catch (error) {
+    const code = error?.code || error?.details
+    if (code === 'PGRST205' || `${error?.message || ''}`.includes('Could not find the table')) {
+      return { success: false, missing: true, netProfit: null }
+    }
+    throw error
+  }
+}
+
+export async function fetchSalesNetProfit(dateFrom, dateTo) {
+  try {
+    const result = await fetchNetProfitFromView(dateFrom, dateTo)
+    if (result.success) {
+      return { success: true, netProfit: result.netProfit }
+    }
+    if (result.missing) {
+      return { success: false, missing: true, netProfit: null }
+    }
+    return { success: false, netProfit: null }
+  } catch (error) {
+    console.error('Error fetching sales net profit:', error)
+    return { success: false, error: error.message }
+  }
 }
 
 // Fetch rental transactions
@@ -232,6 +276,9 @@ export async function getDashboardStats(dateFrom, dateTo) {
     const validSales = sales.filter(s => s.status?.toLowerCase() !== 'cancelled')
     const validRentals = rentals.filter(r => r.status?.toLowerCase() !== 'cancelled')
 
+    const netProfitFromView = await fetchNetProfitFromView(fromDate, toDate)
+    const netProfit = netProfitFromView.success ? netProfitFromView.netProfit : null
+
     // Calculate statistics
     const stats = {
       totalRentals: rentals.length,
@@ -244,6 +291,7 @@ export async function getDashboardStats(dateFrom, dateTo) {
         validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
       activeRentals: rentals.filter(r => r.status === 'active').length,
       completedSales: sales.filter(s => s.status === 'completed').length,
+      netProfit
     }
 
     return { success: true, data: stats }

@@ -46,6 +46,12 @@
         <p class="summary-label">Total Penjualan</p>
         <p class="summary-value">Rp {{ formatCurrency(totalAmount) }}</p>
       </div>
+      <div class="summary-card">
+        <p class="summary-label">Laba Bersih</p>
+        <p class="summary-value">
+          {{ netProfit == null ? '-' : `Rp ${formatCurrency(netProfit)}` }}
+        </p>
+      </div>
     </div>
 
     <div v-if="loading" class="loading">
@@ -137,11 +143,12 @@
 import { ref, computed, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import ListPagination from '@/components/ListPagination.vue'
-import { fetchSalesTransactions, fetchSalesTransactionDetails } from '@/services/api'
+import { fetchSalesNetProfit, fetchSalesTransactions, fetchSalesTransactionDetails } from '@/services/api'
 
 const loading = ref(false)
 const transactions = ref([])
 const totalCount = ref(0)
+const netProfit = ref(null)
 const filters = ref({
   dateFrom: '',
   dateTo: '',
@@ -184,11 +191,15 @@ const getStatusBadgeClass = (status) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const result = await fetchSalesTransactions(filters.value)
-    if (result.success) {
-      transactions.value = result.data || []
-      totalCount.value = result.count || 0
+    const [transactionsResult, netProfitResult] = await Promise.all([
+      fetchSalesTransactions(filters.value),
+      fetchSalesNetProfit(filters.value.dateFrom, filters.value.dateTo)
+    ])
+    if (transactionsResult.success) {
+      transactions.value = transactionsResult.data || []
+      totalCount.value = transactionsResult.count || 0
     }
+    netProfit.value = netProfitResult.success ? netProfitResult.netProfit : null
   } catch (error) {
     console.error('Error loading sales transactions:', error)
   } finally {

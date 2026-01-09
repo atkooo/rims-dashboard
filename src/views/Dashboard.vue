@@ -33,6 +33,16 @@
           </div>
         </div>
 
+        <div class="stat-card variant-teal">
+          <div class="stat-icon">📈</div>
+          <div class="stat-content">
+            <p class="stat-label">Laba Bersih Penjualan</p>
+            <p class="stat-value">
+              {{ stats.netProfit == null ? '-' : `Rp ${formatCurrency(stats.netProfit)}` }}
+            </p>
+          </div>
+        </div>
+
         <div class="stat-card variant-emerald">
           <div class="stat-icon">📦</div>
           <div class="stat-content">
@@ -307,6 +317,7 @@ onMounted(() => {
 .stat-card:nth-child(4) { animation-delay: 0.2s; }
 .stat-card:nth-child(5) { animation-delay: 0.25s; }
 .stat-card:nth-child(6) { animation-delay: 0.3s; }
+.stat-card:nth-child(7) { animation-delay: 0.35s; }
 
 .stat-icon {
   width: 48px;
@@ -347,6 +358,11 @@ onMounted(() => {
 .variant-emerald .stat-icon {
   background: rgba(16, 185, 129, 0.16);
   color: #047857;
+}
+
+.variant-teal .stat-icon {
+  background: rgba(20, 184, 166, 0.18);
+  color: #0f766e;
 }
 
 .variant-amber .stat-icon {
