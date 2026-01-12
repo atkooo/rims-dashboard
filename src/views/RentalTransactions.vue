@@ -156,11 +156,14 @@ const filters = ref({
 const detailsOpen = ref(false)
 const selectedDetails = ref([])
 
+const nonCancelledTransactions = computed(() =>
+  transactions.value.filter(t => t.status?.toLowerCase() !== 'cancelled')
+)
 const totalDeposit = computed(() =>
-  transactions.value.reduce((sum, t) => sum + (parseFloat(t.deposit) || 0), 0)
+  nonCancelledTransactions.value.reduce((sum, t) => sum + (parseFloat(t.deposit) || 0), 0)
 )
 const totalAmount = computed(() =>
-  transactions.value.reduce((sum, t) => sum + (parseFloat(t.total_amount) || 0), 0)
+  nonCancelledTransactions.value.reduce((sum, t) => sum + (parseFloat(t.total_amount) || 0), 0)
 )
 
 const totalPages = computed(() =>
