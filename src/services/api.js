@@ -90,6 +90,12 @@ export async function fetchRentalTransactions(filters = {}) {
     if (filters.dateTo) {
       query = query.lte('rental_date', filters.dateTo)
     }
+    if (filters.createdFrom) {
+      query = query.gte('created_at', filters.createdFrom)
+    }
+    if (filters.createdTo) {
+      query = query.lte('created_at', filters.createdTo)
+    }
     if (filters.status) {
       query = query.eq('status', filters.status)
     }
@@ -137,6 +143,12 @@ export async function fetchSalesTransactions(filters = {}) {
     }
     if (filters.dateTo) {
       query = query.lte('sale_date', filters.dateTo)
+    }
+    if (filters.createdFrom) {
+      query = query.gte('created_at', filters.createdFrom)
+    }
+    if (filters.createdTo) {
+      query = query.lte('created_at', filters.createdTo)
     }
     if (filters.status) {
       query = query.eq('status', filters.status)
@@ -261,14 +273,18 @@ export async function fetchStockMovements(filters = {}) {
 // Get dashboard statistics
 export async function getDashboardStats(dateFrom, dateTo) {
   try {
-    // Get date range
-    const fromDate = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    const toDate = dateTo || new Date().toISOString().split('T')[0]
+    const filters = {}
+    if (dateFrom) {
+      filters.createdFrom = dateFrom
+    }
+    if (dateTo) {
+      filters.createdTo = dateTo
+    }
 
     // Fetch all data in parallel
     const [rentalsResult, salesResult] = await Promise.all([
-      fetchRentalTransactions({ dateFrom: fromDate, dateTo: toDate }),
-      fetchSalesTransactions({ dateFrom: fromDate, dateTo: toDate })
+      fetchRentalTransactions(filters),
+      fetchSalesTransactions(filters)
     ])
 
     const rentals = rentalsResult.data || []
@@ -276,7 +292,7 @@ export async function getDashboardStats(dateFrom, dateTo) {
     const validSales = sales.filter(s => s.status?.toLowerCase() !== 'cancelled')
     const validRentals = rentals.filter(r => r.status?.toLowerCase() !== 'cancelled')
 
-    const netProfitFromView = await fetchNetProfitFromView(fromDate, toDate)
+    const netProfitFromView = await fetchNetProfitFromView(dateFrom, dateTo)
     const netProfit = netProfitFromView.success ? netProfitFromView.netProfit : null
 
     // Calculate statistics

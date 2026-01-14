@@ -1,4 +1,4 @@
-<template>
+ <template>
   <Layout>
     <div v-if="loading" class="loading">
       <div class="spinner"></div>
@@ -10,9 +10,7 @@
           <p class="section-eyebrow">Ringkasan</p>
           <h2 class="section-title">Statistik Utama</h2>
         </div>
-        <div class="section-actions">
-          <span class="section-chip">30 hari terakhir</span>
-        </div>
+        <div class="section-actions"></div>
       </div>
 
       <!-- Statistics Cards -->
@@ -28,8 +26,16 @@
         <div class="stat-card variant-indigo">
           <div class="stat-icon">💰</div>
           <div class="stat-content">
-            <p class="stat-label">Total Pendapatan</p>
+            <p class="stat-label">Pendapatan Penjualan</p>
             <p class="stat-value">Rp {{ formatCurrency(stats.totalRevenue || 0) }}</p>
+          </div>
+        </div>
+
+        <div class="stat-card variant-teal">
+          <div class="stat-icon">🏠</div>
+          <div class="stat-content">
+            <p class="stat-label">Pendapatan Rental</p>
+            <p class="stat-value">Rp {{ formatCurrency(stats.totalRentalIncome || 0) }}</p>
           </div>
         </div>
 
