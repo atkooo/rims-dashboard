@@ -1,78 +1,82 @@
-import { supabase } from '@/config/supabase'
+import { supabase } from "@/config/supabase";
 
 const PAYMENT_TABLES = {
-  rental: 'rental_payments',
-  sale: 'sales_payments',
-  sales: 'sales_payments'
-}
-const NET_PROFIT_VIEW = 'sales_profit_view'
+  rental: "rental_payments",
+  sale: "sales_payments",
+  sales: "sales_payments",
+};
+const NET_PROFIT_VIEW = "sales_profit_view";
 
 function normalizePaymentType(type) {
-  if (!type) return null
-  const normalized = `${type}`.trim().toLowerCase()
-  if (!PAYMENT_TABLES[normalized]) return null
-  return normalized === 'sale' ? 'sales' : normalized
+  if (!type) return null;
+  const normalized = `${type}`.trim().toLowerCase();
+  if (!PAYMENT_TABLES[normalized]) return null;
+  return normalized === "sale" ? "sales" : normalized;
 }
 
 function buildPaymentQuery(table, filters) {
   let query = supabase
     .from(table)
-    .select('*', { count: 'exact' })
-    .order('payment_date', { ascending: false })
+    .select("*", { count: "exact" })
+    .order("payment_date", { ascending: false });
 
   if (filters.dateFrom) {
-    query = query.gte('payment_date', filters.dateFrom)
+    query = query.gte("payment_date", filters.dateFrom);
   }
   if (filters.dateTo) {
-    query = query.lte('payment_date', filters.dateTo)
+    query = query.lte("payment_date", filters.dateTo);
   }
   if (filters.paymentMethod) {
-    query = query.eq('payment_method', filters.paymentMethod)
+    query = query.eq("payment_method", filters.paymentMethod);
   }
 
-  return query
+  return query;
 }
 
 async function fetchNetProfitFromView(dateFrom, dateTo) {
   try {
-    let query = supabase
-      .from(NET_PROFIT_VIEW)
-      .select('laba_total, sale_date')
+    let query = supabase.from(NET_PROFIT_VIEW).select("laba_total, sale_date");
 
     if (dateFrom) {
-      query = query.gte('sale_date', dateFrom)
+      query = query.gte("sale_date", dateFrom);
     }
     if (dateTo) {
-      query = query.lte('sale_date', dateTo)
+      query = query.lte("sale_date", dateTo);
     }
 
-    const { data, error } = await query
-    if (error) throw error
+    const { data, error } = await query;
+    if (error) throw error;
 
-    const netProfit = (data || []).reduce((sum, row) => sum + (parseFloat(row.laba_total) || 0), 0)
-    return { success: true, netProfit }
+    const netProfit = (data || []).reduce(
+      (sum, row) => sum + (parseFloat(row.laba_total) || 0),
+      0,
+    );
+    return { success: true, netProfit };
   } catch (error) {
-    const code = error?.code || error?.details
-    if (code === 'PGRST205' || `${error?.message || ''}`.includes('Could not find the table')) {
-      return { success: false, missing: true, netProfit: null }
+    const code = error?.code || error?.details;
+    if (
+      code === "PGRST205" ||
+      `${error?.message || ""}`.includes("Could not find the table")
+    ) {
+      return { success: false, missing: true, netProfit: null };
     }
-    throw error
+    throw error;
   }
 }
 
 export async function fetchSalesNetProfit(dateFrom, dateTo) {
   try {
-    const result = await fetchNetProfitFromView(dateFrom, dateTo)
+    const result = await fetchNetProfitFromView(dateFrom, dateTo);
     if (result.success) {
-      return { success: true, netProfit: result.netProfit }
+      return { success: true, netProfit: result.netProfit };
     }
     if (result.missing) {
-      return { success: false, missing: true, netProfit: null }
+      return { success: false, missing: true, netProfit: null };
     }
-    return { success: false, netProfit: null }
+    return { success: false, netProfit: null };
   } catch (error) {
-    console.error('Error fetching sales net profit:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching sales net profit:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -80,37 +84,37 @@ export async function fetchSalesNetProfit(dateFrom, dateTo) {
 export async function fetchRentalTransactions(filters = {}) {
   try {
     let query = supabase
-      .from('rental_transactions')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .from("rental_transactions")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
 
     if (filters.dateFrom) {
-      query = query.gte('rental_date', filters.dateFrom)
+      query = query.gte("rental_date", filters.dateFrom);
     }
     if (filters.dateTo) {
-      query = query.lte('rental_date', filters.dateTo)
+      query = query.lte("rental_date", filters.dateTo);
     }
     if (filters.createdFrom) {
-      query = query.gte('created_at', filters.createdFrom)
+      query = query.gte("created_at", filters.createdFrom);
     }
     if (filters.createdTo) {
-      query = query.lte('created_at', filters.createdTo)
+      query = query.lte("created_at", filters.createdTo);
     }
     if (filters.status) {
-      query = query.eq('status', filters.status)
+      query = query.eq("status", filters.status);
     }
 
-    const limit = filters.limit || 1000
-    const page = filters.page || 1
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    const { data, error, count } = await query.range(from, to)
+    const limit = filters.limit || 1000;
+    const page = filters.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const { data, error, count } = await query.range(from, to);
 
-    if (error) throw error
-    return { success: true, data, count }
+    if (error) throw error;
+    return { success: true, data, count };
   } catch (error) {
-    console.error('Error fetching rental transactions:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching rental transactions:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -118,15 +122,15 @@ export async function fetchRentalTransactions(filters = {}) {
 export async function fetchRentalTransactionDetails(transactionId) {
   try {
     const { data, error } = await supabase
-      .from('rental_transaction_details')
-      .select('*')
-      .eq('rental_transaction_id', transactionId)
+      .from("rental_transaction_details")
+      .select("*")
+      .eq("rental_transaction_id", transactionId);
 
-    if (error) throw error
-    return { success: true, data }
+    if (error) throw error;
+    return { success: true, data };
   } catch (error) {
-    console.error('Error fetching rental transaction details:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching rental transaction details:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -134,37 +138,37 @@ export async function fetchRentalTransactionDetails(transactionId) {
 export async function fetchSalesTransactions(filters = {}) {
   try {
     let query = supabase
-      .from('sales_transactions')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .from("sales_transactions")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
 
     if (filters.dateFrom) {
-      query = query.gte('sale_date', filters.dateFrom)
+      query = query.gte("sale_date", filters.dateFrom);
     }
     if (filters.dateTo) {
-      query = query.lte('sale_date', filters.dateTo)
+      query = query.lte("sale_date", filters.dateTo);
     }
     if (filters.createdFrom) {
-      query = query.gte('created_at', filters.createdFrom)
+      query = query.gte("created_at", filters.createdFrom);
     }
     if (filters.createdTo) {
-      query = query.lte('created_at', filters.createdTo)
+      query = query.lte("created_at", filters.createdTo);
     }
     if (filters.status) {
-      query = query.eq('status', filters.status)
+      query = query.eq("status", filters.status);
     }
 
-    const limit = filters.limit || 1000
-    const page = filters.page || 1
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    const { data, error, count } = await query.range(from, to)
+    const limit = filters.limit || 1000;
+    const page = filters.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const { data, error, count } = await query.range(from, to);
 
-    if (error) throw error
-    return { success: true, data, count }
+    if (error) throw error;
+    return { success: true, data, count };
   } catch (error) {
-    console.error('Error fetching sales transactions:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching sales transactions:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -172,69 +176,184 @@ export async function fetchSalesTransactions(filters = {}) {
 export async function fetchSalesTransactionDetails(transactionId) {
   try {
     const { data, error } = await supabase
-      .from('sales_transaction_details')
-      .select('*')
-      .eq('sales_transaction_id', transactionId)
+      .from("sales_transaction_details")
+      .select("*")
+      .eq("sales_transaction_id", transactionId);
 
-    if (error) throw error
-    return { success: true, data }
+    if (error) throw error;
+    return { success: true, data };
   } catch (error) {
-    console.error('Error fetching sales transaction details:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching sales transaction details:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Fetch sales totals (all data based on filters, no pagination)
+export async function fetchSalesTotals(filters = {}) {
+  try {
+    let query = supabase
+      .from("sales_transactions")
+      .select("subtotal, total_amount, status", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (filters.dateFrom) {
+      query = query.gte("sale_date", filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      query = query.lte("sale_date", filters.dateTo);
+    }
+    if (filters.status) {
+      query = query.eq("status", filters.status);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    // Calculate totals from all data (not paginated)
+    const nonCancelledData = (data || []).filter(
+      (t) => t.status?.toLowerCase() !== "cancelled",
+    );
+    const totalSubtotal = nonCancelledData.reduce(
+      (sum, t) => sum + (parseFloat(t.subtotal) || 0),
+      0,
+    );
+    const totalAmount = nonCancelledData.reduce(
+      (sum, t) => sum + (parseFloat(t.total_amount) || 0),
+      0,
+    );
+
+    return {
+      success: true,
+      data: nonCancelledData,
+      count,
+      totals: {
+        subtotal: totalSubtotal,
+        amount: totalAmount,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching sales totals:", error);
+    return { success: false, error: error.message };
   }
 }
 
 // Fetch payments
 export async function fetchPayments(filters = {}) {
   try {
-    const normalizedType = normalizePaymentType(filters.transactionType)
+    const normalizedType = normalizePaymentType(filters.transactionType);
     const tableTargets = normalizedType
       ? [{ table: PAYMENT_TABLES[normalizedType], type: normalizedType }]
       : [
-          { table: PAYMENT_TABLES.rental, type: 'rental' },
-          { table: PAYMENT_TABLES.sales, type: 'sales' }
-        ]
+          { table: PAYMENT_TABLES.rental, type: "rental" },
+          { table: PAYMENT_TABLES.sales, type: "sales" },
+        ];
 
-    const limit = filters.limit || 1000
-    const page = filters.page || 1
+    const limit = filters.limit || 1000;
+    const page = filters.page || 1;
 
     if (normalizedType) {
-      const from = (page - 1) * limit
-      const to = from + limit - 1
-      const { data, error, count } = await buildPaymentQuery(tableTargets[0].table, filters).range(from, to)
-      if (error) throw error
-      const mergedPayments = (data || []).map(payment => ({
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      const { data, error, count } = await buildPaymentQuery(
+        tableTargets[0].table,
+        filters,
+      ).range(from, to);
+      if (error) throw error;
+      const mergedPayments = (data || []).map((payment) => ({
         ...payment,
-        transaction_type: tableTargets[0].type
-      }))
-      return { success: true, data: mergedPayments, count }
+        transaction_type: tableTargets[0].type,
+      }));
+      return { success: true, data: mergedPayments, count };
     }
 
-    const maxRows = page * limit
+    const maxRows = page * limit;
     const results = await Promise.all(
-      tableTargets.map(({ table }) => buildPaymentQuery(table, filters).range(0, maxRows - 1))
-    )
+      tableTargets.map(({ table }) =>
+        buildPaymentQuery(table, filters).range(0, maxRows - 1),
+      ),
+    );
 
     const mergedPayments = results.flatMap((result, index) => {
       if (result.error) {
-        throw result.error
+        throw result.error;
       }
-      const type = tableTargets[index].type
-      return (result.data || []).map(payment => ({
+      const type = tableTargets[index].type;
+      return (result.data || []).map((payment) => ({
         ...payment,
-        transaction_type: type
-      }))
-    })
+        transaction_type: type,
+      }));
+    });
 
-    mergedPayments.sort((a, b) => new Date(b.payment_date) - new Date(a.payment_date))
+    mergedPayments.sort(
+      (a, b) => new Date(b.payment_date) - new Date(a.payment_date),
+    );
 
-    const from = (page - 1) * limit
-    const to = from + limit
-    const totalCount = results.reduce((sum, result) => sum + (result.count || 0), 0)
-    return { success: true, data: mergedPayments.slice(from, to), count: totalCount }
+    const from = (page - 1) * limit;
+    const to = from + limit;
+    const totalCount = results.reduce(
+      (sum, result) => sum + (result.count || 0),
+      0,
+    );
+    return {
+      success: true,
+      data: mergedPayments.slice(from, to),
+      count: totalCount,
+    };
   } catch (error) {
-    console.error('Error fetching payments:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching payments:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Fetch payment totals (all data based on filters, no pagination)
+export async function fetchPaymentTotals(filters = {}) {
+  try {
+    const normalizedType = normalizePaymentType(filters.transactionType);
+    const tableTargets = normalizedType
+      ? [{ table: PAYMENT_TABLES[normalizedType], type: normalizedType }]
+      : [
+          { table: PAYMENT_TABLES.rental, type: "rental" },
+          { table: PAYMENT_TABLES.sales, type: "sales" },
+        ];
+
+    // Fetch all data without pagination limit
+    const results = await Promise.all(
+      tableTargets.map(({ table }) =>
+        buildPaymentQuery(table, filters).select("*", { count: "exact" }),
+      ),
+    );
+
+    const mergedPayments = results.flatMap((result, index) => {
+      if (result.error) {
+        throw result.error;
+      }
+      const type = tableTargets[index].type;
+      return (result.data || []).map((payment) => ({
+        ...payment,
+        transaction_type: type,
+      }));
+    });
+
+    const totalAmount = mergedPayments.reduce(
+      (sum, payment) => sum + (parseFloat(payment.amount) || 0),
+      0,
+    );
+    const totalCount = results.reduce(
+      (sum, result) => sum + (result.count || 0),
+      0,
+    );
+
+    return {
+      success: true,
+      totals: {
+        amount: totalAmount,
+        count: totalCount,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching payment totals:", error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -242,77 +361,139 @@ export async function fetchPayments(filters = {}) {
 export async function fetchStockMovements(filters = {}) {
   try {
     let query = supabase
-      .from('stock_movements')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+      .from("stock_movements")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
 
     if (filters.dateFrom) {
-      query = query.gte('created_at', filters.dateFrom)
+      query = query.gte("created_at", filters.dateFrom);
     }
     if (filters.dateTo) {
-      query = query.lte('created_at', filters.dateTo)
+      query = query.lte("created_at", filters.dateTo);
     }
     if (filters.movementType) {
-      query = query.eq('movement_type', filters.movementType)
+      query = query.eq("movement_type", filters.movementType);
     }
 
-    const limit = filters.limit || 1000
-    const page = filters.page || 1
-    const from = (page - 1) * limit
-    const to = from + limit - 1
-    const { data, error, count } = await query.range(from, to)
+    const limit = filters.limit || 1000;
+    const page = filters.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    const { data, error, count } = await query.range(from, to);
 
-    if (error) throw error
-    return { success: true, data, count }
+    if (error) throw error;
+    return { success: true, data, count };
   } catch (error) {
-    console.error('Error fetching stock movements:', error)
-    return { success: false, error: error.message }
+    console.error("Error fetching stock movements:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Fetch stock movement totals (all data based on filters, no pagination)
+export async function fetchStockMovementTotals(filters = {}) {
+  try {
+    let query = supabase
+      .from("stock_movements")
+      .select("movement_type, quantity", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (filters.dateFrom) {
+      query = query.gte("created_at", filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      query = query.lte("created_at", filters.dateTo);
+    }
+    if (filters.movementType) {
+      query = query.eq("movement_type", filters.movementType);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    const totalIn = (data || [])
+      .filter((m) => m.movement_type === "IN")
+      .reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
+
+    const totalOut = (data || [])
+      .filter((m) => m.movement_type === "OUT")
+      .reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
+
+    return {
+      success: true,
+      totals: {
+        count: count || 0,
+        totalIn,
+        totalOut,
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching stock movement totals:", error);
+    return { success: false, error: error.message };
   }
 }
 
 // Get dashboard statistics
 export async function getDashboardStats(dateFrom, dateTo) {
   try {
-    const filters = {}
+    const filters = {};
     if (dateFrom) {
-      filters.createdFrom = dateFrom
+      filters.createdFrom = dateFrom;
     }
     if (dateTo) {
-      filters.createdTo = dateTo
+      filters.createdTo = dateTo;
     }
 
     // Fetch all data in parallel
     const [rentalsResult, salesResult] = await Promise.all([
       fetchRentalTransactions(filters),
-      fetchSalesTransactions(filters)
-    ])
+      fetchSalesTransactions(filters),
+    ]);
 
-    const rentals = rentalsResult.data || []
-    const sales = salesResult.data || []
-    const validSales = sales.filter(s => s.status?.toLowerCase() !== 'cancelled')
-    const validRentals = rentals.filter(r => r.status?.toLowerCase() !== 'cancelled')
+    const rentals = rentalsResult.data || [];
+    const sales = salesResult.data || [];
+    const validSales = sales.filter(
+      (s) => s.status?.toLowerCase() !== "cancelled",
+    );
+    const validRentals = rentals.filter(
+      (r) => r.status?.toLowerCase() !== "cancelled",
+    );
 
-    const netProfitFromView = await fetchNetProfitFromView(dateFrom, dateTo)
-    const netProfit = netProfitFromView.success ? netProfitFromView.netProfit : null
+    const netProfitFromView = await fetchNetProfitFromView(dateFrom, dateTo);
+    const netProfit = netProfitFromView.success
+      ? netProfitFromView.netProfit
+      : null;
 
     // Calculate statistics
     const stats = {
       totalRentals: rentals.length,
       totalSales: sales.length,
       totalTransactions: rentals.length + sales.length,
-      totalRevenue: validSales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0),
-      totalRentalIncome: validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
+      totalRevenue: validSales.reduce(
+        (sum, s) => sum + (parseFloat(s.total_amount) || 0),
+        0,
+      ),
+      totalRentalIncome: validRentals.reduce(
+        (sum, r) => sum + (parseFloat(r.total_amount) || 0),
+        0,
+      ),
       totalPayments:
-        validSales.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0) +
-        validRentals.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0),
-      activeRentals: rentals.filter(r => r.status === 'active').length,
-      completedSales: sales.filter(s => s.status === 'completed').length,
-      netProfit
-    }
+        validSales.reduce(
+          (sum, s) => sum + (parseFloat(s.total_amount) || 0),
+          0,
+        ) +
+        validRentals.reduce(
+          (sum, r) => sum + (parseFloat(r.total_amount) || 0),
+          0,
+        ),
+      activeRentals: rentals.filter((r) => r.status === "active").length,
+      completedSales: sales.filter((s) => s.status === "completed").length,
+      netProfit,
+    };
 
-    return { success: true, data: stats }
+    return { success: true, data: stats };
   } catch (error) {
-    console.error('Error getting dashboard stats:', error)
-    return { success: false, error: error.message }
+    console.error("Error getting dashboard stats:", error);
+    return { success: false, error: error.message };
   }
 }

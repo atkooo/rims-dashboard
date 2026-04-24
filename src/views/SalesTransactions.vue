@@ -96,13 +96,8 @@
           </tbody>
         </table>
       </div>
-      <ListPagination
-        :page="filters.page"
-        :page-size="filters.limit"
-        :total-pages="totalPages"
-        @update:page="handlePageChange"
-        @update:pageSize="handlePageSizeChange"
-      />
+      <ListPagination :page="filters.page" :page-size="filters.limit" :total-pages="totalPages"
+        @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
 
       <div v-if="detailsOpen" class="details-modal" @click.self="detailsOpen = false">
         <div class="modal-content">
@@ -143,7 +138,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import ListPagination from '@/components/ListPagination.vue'
-import { fetchSalesNetProfit, fetchSalesTransactions, fetchSalesTransactionDetails } from '@/services/api'
+import { fetchSalesNetProfit, fetchSalesTotals, fetchSalesTransactions, fetchSalesTransactionDetails } from '@/services/api'
 
 const loading = ref(false)
 const transactions = ref([])
@@ -159,14 +154,12 @@ const filters = ref({
 const detailsOpen = ref(false)
 const selectedDetails = ref([])
 
+// Totals from all data (not paginated) - set from API
+const totalSubtotal = ref(0)
+const totalAmount = ref(0)
+
 const nonCancelledTransactions = computed(() =>
   transactions.value.filter(t => t.status?.toLowerCase() !== 'cancelled')
-)
-const totalSubtotal = computed(() =>
-  nonCancelledTransactions.value.reduce((sum, t) => sum + (parseFloat(t.subtotal) || 0), 0)
-)
-const totalAmount = computed(() =>
-  nonCancelledTransactions.value.reduce((sum, t) => sum + (parseFloat(t.total_amount) || 0), 0)
 )
 
 const totalPages = computed(() =>
@@ -194,13 +187,19 @@ const getStatusBadgeClass = (status) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const [transactionsResult, netProfitResult] = await Promise.all([
+    const [transactionsResult, totalsResult, netProfitResult] = await Promise.all([
       fetchSalesTransactions(filters.value),
+      fetchSalesTotals(filters.value),
       fetchSalesNetProfit(filters.value.dateFrom, filters.value.dateTo)
     ])
     if (transactionsResult.success) {
       transactions.value = transactionsResult.data || []
       totalCount.value = transactionsResult.count || 0
+    }
+    // Use totals from all data (not paginated)
+    if (totalsResult.success && totalsResult.totals) {
+      totalSubtotal.value = totalsResult.totals.subtotal
+      totalAmount.value = totalsResult.totals.amount
     }
     netProfit.value = netProfitResult.success ? netProfitResult.netProfit : null
   } catch (error) {

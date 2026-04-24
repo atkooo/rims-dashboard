@@ -93,13 +93,8 @@
           </tbody>
         </table>
       </div>
-      <ListPagination
-        :page="filters.page"
-        :page-size="filters.limit"
-        :total-pages="totalPages"
-        @update:page="handlePageChange"
-        @update:pageSize="handlePageSizeChange"
-      />
+      <ListPagination :page="filters.page" :page-size="filters.limit" :total-pages="totalPages"
+        @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
     </div>
   </Layout>
 </template>
@@ -108,7 +103,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import ListPagination from '@/components/ListPagination.vue'
-import { fetchStockMovements } from '@/services/api'
+import { fetchStockMovementTotals, fetchStockMovements } from '@/services/api'
 
 const loading = ref(false)
 const movements = ref([])
@@ -130,25 +125,26 @@ const getMovementBadgeClass = (type) => {
   return type === 'IN' ? 'badge badge-success' : 'badge badge-danger'
 }
 
-const totalIn = computed(() =>
-  movements.value
-    .filter((movement) => movement.movement_type === 'IN')
-    .reduce((sum, movement) => sum + (parseFloat(movement.quantity) || 0), 0)
-)
-
-const totalOut = computed(() =>
-  movements.value
-    .filter((movement) => movement.movement_type === 'OUT')
-    .reduce((sum, movement) => sum + (parseFloat(movement.quantity) || 0), 0)
-)
+// Totals from all data (not paginated) - set from API
+const totalIn = ref(0)
+const totalOut = ref(0)
 
 const loadData = async () => {
   loading.value = true
   try {
-    const result = await fetchStockMovements(filters.value)
-    if (result.success) {
-      movements.value = result.data || []
-      totalCount.value = result.count || 0
+    const [movementsResult, totalsResult] = await Promise.all([
+      fetchStockMovements(filters.value),
+      fetchStockMovementTotals(filters.value)
+    ])
+    if (movementsResult.success) {
+      movements.value = movementsResult.data || []
+      totalCount.value = movementsResult.count || 0
+    }
+    // Use totals from all data (not paginated)
+    if (totalsResult.success && totalsResult.totals) {
+      totalIn.value = totalsResult.totals.totalIn
+      totalOut.value = totalsResult.totals.totalOut
+      totalCount.value = totalsResult.totals.count
     }
   } catch (error) {
     console.error('Error loading stock movements:', error)
@@ -302,4 +298,3 @@ onMounted(() => {
   }
 }
 </style>
-

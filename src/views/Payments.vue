@@ -79,13 +79,8 @@
           </tbody>
         </table>
       </div>
-      <ListPagination
-        :page="filters.page"
-        :page-size="filters.limit"
-        :total-pages="totalPages"
-        @update:page="handlePageChange"
-        @update:pageSize="handlePageSizeChange"
-      />
+      <ListPagination :page="filters.page" :page-size="filters.limit" :total-pages="totalPages"
+        @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
     </div>
   </Layout>
 </template>
@@ -94,7 +89,7 @@
 import { ref, computed, onMounted } from 'vue'
 import Layout from '@/components/Layout.vue'
 import ListPagination from '@/components/ListPagination.vue'
-import { fetchPayments } from '@/services/api'
+import { fetchPaymentTotals, fetchPayments } from '@/services/api'
 
 const loading = ref(false)
 const payments = ref([])
@@ -111,9 +106,8 @@ const formatCurrency = (value) => {
   return new Intl.NumberFormat('id-ID').format(value || 0)
 }
 
-const totalAmount = computed(() =>
-  payments.value.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0)
-)
+// Total from all data (not paginated) - set from API
+const totalAmount = ref(0)
 
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(totalCount.value / (filters.value.limit || 1)))
@@ -131,10 +125,18 @@ const getTypeBadgeClass = (type) => {
 const loadData = async () => {
   loading.value = true
   try {
-    const result = await fetchPayments(filters.value)
-    if (result.success) {
-      payments.value = result.data || []
-      totalCount.value = result.count || 0
+    const [paymentsResult, totalsResult] = await Promise.all([
+      fetchPayments(filters.value),
+      fetchPaymentTotals(filters.value)
+    ])
+    if (paymentsResult.success) {
+      payments.value = paymentsResult.data || []
+      totalCount.value = paymentsResult.count || 0
+    }
+    // Use totals from all data (not paginated)
+    if (totalsResult.success && totalsResult.totals) {
+      totalAmount.value = totalsResult.totals.amount
+      totalCount.value = totalsResult.totals.count
     }
   } catch (error) {
     console.error('Error loading payments:', error)
@@ -280,4 +282,3 @@ onMounted(() => {
   }
 }
 </style>
-
